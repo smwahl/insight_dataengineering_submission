@@ -16,6 +16,8 @@ class SessionParser(object):
 
         self.currentTime = None
 
+        self.output = output_path
+
         # Default fields (in case log format has changed)
         self.fields = {
             'ip':0,
@@ -48,7 +50,7 @@ class SessionParser(object):
 
                     # split the line into arguments
                     args = line.split(',')
-                    print args
+                    #print args
 
                     # pick out the arguments that are needed
                     uip = args[ self.fields['ip'] ]
@@ -64,8 +66,15 @@ class SessionParser(object):
                         delta = timedelta(seconds=0)
                     else:
                         delta = dtime - self.currentTime
+                        self.currentTime = dtime
 
-                    print uip, self.currentTime, delta
+                    #print uip, self.currentTime, delta.seconds
+
+                    # if the time has changed check for terminated sessions
+                    if delta.seconds > 0:
+                        print self.currentTime
+                        print self.activeUsers.keys()
+                        self.detectTerminatedSessions()
 
                     # Check if user is active, and store or update as necessary
                     if uip in self.activeUsers.keys():
@@ -76,10 +85,47 @@ class SessionParser(object):
                         self.activeUsers.update({uip:u})
 
     def detectTerminatedSessions(self):
-        pass
+
+        terminatedSessions = []
+
+        # iterate through active users
+        for uip in self.activeUsers.keys():
+
+            user = self.activeUsers[uip]
+
+            # Check if user's session has expired
+            if (self.currentTime - user.latest_time).seconds > self.period:
+
+                terminatedSessions.append(user)
+
+                # remove user from active users
+                self.activeUsers.pop(uip)
 
 
+        # sort so that sessions print in the correct order
+        terminatedSessions.sort(key=lambda x: (x.start_time,x.lid))
 
+        # write to output file
+        #with self.output as f:
+        for user in terminatedSessions:
+            print user.printString()
+            self.output.write( user.printString())
+
+    def terminateRemaining(self):
+
+        terminatedSessions = [ self.activeUsers[ip] for ip in self.activeUsers.keys()]
+
+        # reset active users
+        self.activeUsers = {}
+
+        # sort so that sessions print in the correct order
+        terminatedSessions.sort(key=lambda x: (x.start_time,x.lid) )
+
+        # write to output file
+        #with self.output as f:
+        for user in terminatedSessions:
+            print user.printString()
+            self.output.write( user.printString())
 
 class User(object):
 
@@ -108,7 +154,12 @@ class User(object):
 
     def sessionLength(self):
 
-        return 1 + int(self.latest_time - self.start_time)
+        return 1 + (self.latest_time - self.start_time).seconds
+
+    def printString(self):
+
+        return self.ip + ',' + str(self.start_time) + ',' + str(self.latest_time) + \
+                ',' + str(self.sessionLength()) + ',' + str(self.num_docs) + '\n'
 
 
 
@@ -150,10 +201,11 @@ if __name__ == "__main__":
 
     sp = SessionParser(args.output_file,inactivity_period=inactivity_period)
 
-    line_buffer = 5
+    line_buffer = 100
     with args.log_file as f:
 
-        # skip initial line
+        # skip initial line (could use this to make sure the correct column is
+        # used)
         line = f.readline()
         print line
 
@@ -162,5 +214,8 @@ if __name__ == "__main__":
             if not line_gen:
                 break
             sp.parseRequests(line_gen)
+
+        # clean up at end of file
+        sp.terminateRemaining()
 
 

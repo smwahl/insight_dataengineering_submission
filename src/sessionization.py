@@ -12,9 +12,9 @@ class SessionParser(object):
         except:
             raise ValueError('inactivity_period must be an integer number of seconds.')
 
-        self.activeUsers = {}
+        self.active_users = {}
 
-        self.currentTime = None
+        self.current_time = None
 
         self.output = output_path
 
@@ -38,19 +38,17 @@ class SessionParser(object):
             #'browser':14
 
         # give each parsed line a unique ID to avoid any order output ambiguity.
-        self.lineID = 0
+        self.line_id = 0
 
-    def parseRequests(self,requests):
-
+    def parse_requests(self,requests):
 
                 for line in requests:
 
                     # increment unique line id
-                    self.lineID += 1
+                    self.line_id += 1
 
                     # split the line into arguments
                     args = line.split(',')
-                    #print args
 
                     # pick out the arguments that are needed
                     uip = args[ self.fields['ip'] ]
@@ -61,71 +59,65 @@ class SessionParser(object):
                                               '%Y-%m-%d %H:%M:%S')
 
                     # Check and store time
-                    if self.currentTime is None:
-                        self.currentTime = dtime
+                    if self.current_time is None:
+                        self.current_time = dtime
                         delta = timedelta(seconds=0)
                     else:
-                        delta = dtime - self.currentTime
-                        self.currentTime = dtime
-
-                    #print uip, self.currentTime, delta.seconds
+                        delta = dtime - self.current_time
+                        self.current_time = dtime
 
                     # if the time has changed check for terminated sessions
                     if delta.seconds > 0:
-                        print self.currentTime
-                        print self.activeUsers.keys()
-                        self.detectTerminatedSessions()
+                        self.detect_terminated_sessions()
 
                     # Check if user is active, and store or update as necessary
-                    if uip in self.activeUsers.keys():
-                        u = self.activeUsers[uip]
-                        u.update(self.currentTime)
+                    if uip in self.active_users.keys():
+                        u = self.active_users[uip]
+                        u.update(self.current_time)
                     else:
-                        u = User(self.lineID,uip,self.currentTime)
-                        self.activeUsers.update({uip:u})
+                        u = User(self.line_id,uip,self.current_time)
+                        self.active_users.update({uip:u})
 
-    def detectTerminatedSessions(self):
+    def detect_terminated_sessions(self):
 
-        terminatedSessions = []
+        terminated_sessions = []
 
         # iterate through active users
-        for uip in self.activeUsers.keys():
+        for uip in self.active_users.keys():
 
-            user = self.activeUsers[uip]
+            user = self.active_users[uip]
 
             # Check if user's session has expired
-            if (self.currentTime - user.latest_time).seconds > self.period:
+            if (self.current_time - user.latest_time).seconds > self.period:
 
-                terminatedSessions.append(user)
+                terminated_sessions.append(user)
 
                 # remove user from active users
-                self.activeUsers.pop(uip)
+                self.active_users.pop(uip)
 
 
         # sort so that sessions print in the correct order
-        terminatedSessions.sort(key=lambda x: (x.start_time,x.lid))
+        terminated_sessions.sort(key=lambda x: (x.start_time,x.lid))
 
         # write to output file
         #with self.output as f:
-        for user in terminatedSessions:
-            print user.printString()
-            self.output.write( user.printString())
+        for user in terminated_sessions:
+            self.output.write( user.print_string())
 
     def terminateRemaining(self):
 
-        terminatedSessions = [ self.activeUsers[ip] for ip in self.activeUsers.keys()]
+        terminated_sessions = [ self.active_users[ip] for ip in self.active_users.keys()]
 
         # reset active users
-        self.activeUsers = {}
+        self.active_users = {}
 
         # sort so that sessions print in the correct order
-        terminatedSessions.sort(key=lambda x: (x.start_time,x.lid) )
+        terminated_sessions.sort(key=lambda x: (x.start_time,x.lid) )
 
         # write to output file
         #with self.output as f:
-        for user in terminatedSessions:
-            print user.printString()
-            self.output.write( user.printString())
+        for user in terminated_sessions:
+            self.output.write( user.print_string())
 
 class User(object):
 
@@ -152,14 +144,14 @@ class User(object):
         # increment the number of documents
         self.num_docs += 1
 
-    def sessionLength(self):
+    def session_length(self):
 
         return 1 + (self.latest_time - self.start_time).seconds
 
-    def printString(self):
+    def print_string(self):
 
         return self.ip + ',' + str(self.start_time) + ',' + str(self.latest_time) + \
-                ',' + str(self.sessionLength()) + ',' + str(self.num_docs) + '\n'
+                ',' + str(self.session_length()) + ',' + str(self.num_docs) + '\n'
 
 
 
@@ -197,7 +189,7 @@ if __name__ == "__main__":
        if len(inactivity_content) > 1:
            warnings.warn("Only the the first line of file considered for inactivity period.",
                          SyntaxWarning)
-       print 'Inactivity period:', inactivity_period, 'seconds'
+       #print 'Inactivity period:', inactivity_period, 'seconds'
 
     sp = SessionParser(args.output_file,inactivity_period=inactivity_period)
 
@@ -207,13 +199,13 @@ if __name__ == "__main__":
         # skip initial line (could use this to make sure the correct column is
         # used)
         line = f.readline()
-        print line
+        #print line
 
         while True:
             line_gen = list(islice(f, line_buffer))
             if not line_gen:
                 break
-            sp.parseRequests(line_gen)
+            sp.parse_requests(line_gen)
 
         # clean up at end of file
         sp.terminateRemaining()

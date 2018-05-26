@@ -6,5 +6,5 @@
 rm -f ./output/sessionization.txt
 
 #python ./src/sessionization.py -h 
-python ./src/sessionization.py ./input/log.csv ./input/inactivity_period.txt ./output/sessionization.txt
+python ./src/sessionization.py ./input/log.csv ./input/inactivity_period.txt ./output/sessionization.txt -n 100
 

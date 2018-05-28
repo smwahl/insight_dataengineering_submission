@@ -295,6 +295,7 @@ if __name__ == "__main__":
            warnings.warn("Only the the first line of file considered for inactivity period.",
                          SyntaxWarning)
 
+    # initialize instance of parser
     sp = SessionParser(args.output_file,inactivity_period=inactivity_period)
 
     with args.log_file as f:
@@ -303,13 +304,14 @@ if __name__ == "__main__":
         for i in range(args.header):
             line = f.readline()
 
+        # pass the selected number of line from the log to be parsed
         while True:
             line_gen = list(islice(f, args.line_buffer))
             if not line_gen:
                 break
             sp.parse_requests(line_gen)
 
-        # clean up at end of file
+        # clean up at end of file, handle all remaining actbe sessions
         sp.terminate_remaining_sessions()
 
 
